@@ -1,112 +1,99 @@
 """
-The model - a 2D lattice where agents live and have an opinion
+The model - a 2D lattice where agents live and have an opinion.
+
+Environment state (the cell opinions) is stored in model.opinion_grid as a
+NumPy array instead of inside individual ColorCell agents. This follows the
+pattern from Issue #366: patch agents that only hold environment state are
+replaced by a grid-level array on the model.
+
+ColorCell agents are kept as lightweight wrappers for visualization.
 """
 
 from collections import Counter
 
+import numpy as np
 import mesa
-from mesa.discrete_space.cell_agent import (
-    CellAgent,
-)
-from mesa.discrete_space.grid import (
-    OrthogonalMooreGrid,
-)
+from mesa.discrete_space import FixedAgent
+from mesa.discrete_space.grid import OrthogonalMooreGrid
 
 
-class ColorCell(CellAgent):
+class ColorCell(FixedAgent):
+    """Lightweight visualization wrapper.
+
+    The actual opinion state is stored in model.opinion_grid as a NumPy array.
+    This agent exists only so the Solara visualization can iterate over cell
+    positions and read state from the model.
     """
-    Represents a cell's opinion (visualized by a color)
-    """
 
-    OPINIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    # The 16 possible opinion values, kept as a class constant for reference.
+    OPINIONS = list(range(16))
 
-    def __init__(self, model, initial_state):
-        """
-        Create a cell, in the given state, at the given row, col position.
-        """
+    def __init__(self, cell, model):
+        """Place a visualization marker at the given grid cell."""
         super().__init__(model)
-        self.state = initial_state
-        self.next_state = None
-
-    def get_col(self):
-        """Return the col location of this cell."""
-        return self.cell.coordinate[0]
-
-    def get_row(self):
-        """Return the row location of this cell."""
-        return self.cell.coordinate[1]
-
-    def determine_opinion(self):
-        """
-        Determines the agent opinion for the next step by polling its neighbors
-        The opinion is determined by the majority of the 8 neighbors' opinion
-        A choice is made at random in case of a tie
-        The next state is stored until all cells have been polled
-        """
-        neighbors = self.cell.neighborhood.agents
-        neighbors_opinion = Counter(n.state for n in neighbors)
-        # Following is a a tuple (attribute, occurrences)
-        polled_opinions = neighbors_opinion.most_common()
-        tied_opinions = []
-        for neighbor in polled_opinions:
-            if neighbor[1] == polled_opinions[0][1]:
-                tied_opinions.append(neighbor)
-
-        self.next_state = self.random.choice(tied_opinions)[0]
-
-    def assume_opinion(self):
-        """
-        Set the state of the agent to the next state
-        """
-        self.state = self.next_state
+        self.cell = cell
 
 
 class ColorPatches(mesa.Model):
     """
-    represents a 2D lattice where agents live
+    Represents a 2D lattice where cells vote toward the majority opinion of
+    their neighbors. Opinion state lives in model.opinion_grid (NumPy array)
+    rather than inside agent objects.
     """
 
     def __init__(self, width=20, height=20):
         """
-        Create a 2D lattice with strict borders where agents live
-        The agents next state is first determined before updating the grid
+        Create a 2D lattice with strict borders where agents live.
+        The agents next state is first determined before updating the grid.
         """
         super().__init__()
+
         self._grid = OrthogonalMooreGrid(
             (width, height), torus=False, random=self.random
         )
 
-        # self._grid.coord_iter()
-        #  --> should really not return content + col + row
-        #  -->but only col & row
-        # for (contents, col, row) in self._grid.coord_iter():
-        # replaced content with _ to appease linter
+        # Opinion state stored as a NumPy array: values 0-15 map to 16 colors.
+        self.opinion_grid = self.rng.integers(0, 16, size=(width, height), dtype=np.int8)
+
+        # Create a lightweight ColorCell agent at each position for visualization.
         for cell in self._grid.all_cells:
-            agent = ColorCell(self, ColorCell.OPINIONS[self.random.randrange(0, 16)])
-            agent.move_to(cell)
+            ColorCell(cell, self)
 
         self.running = True
 
     def step(self):
         """
-        Perform the model step in two stages:
-        - First, all agents determine their next opinion based on their neighbors current opinions
-        - Then, all agents update their opinion to the next opinion
+        Update all cell opinions simultaneously.
+
+        Each cell adopts the most common opinion among its 8 neighbors. Ties
+        are broken randomly. A new_opinion array is computed from the current
+        state before any values are written, so all cells read from the same
+        snapshot (matching the original two-phase determine/assume design).
         """
-        self.agents.do("determine_opinion")
-        self.agents.do("assume_opinion")
+        new_opinion = self.opinion_grid.copy()
+
+        for agent in self.agents:
+            x, y = agent.cell.coordinate
+
+            # Count how many neighbors hold each opinion value.
+            neighbor_counts = Counter(
+                self.opinion_grid[nx, ny]
+                for n in agent.cell.neighborhood
+                for nx, ny in [n.coordinate]
+            )
+
+            polled = neighbor_counts.most_common()
+            max_count = polled[0][1]
+
+            # Collect all opinions that tie for the top count.
+            tied = [opinion for opinion, count in polled if count == max_count]
+
+            # Resolve the tie randomly (or just pick the single winner).
+            new_opinion[x, y] = self.random.choice(tied)
+
+        self.opinion_grid = new_opinion
 
     @property
     def grid(self):
-        """
-        /mesa/visualization/modules/CanvasGridVisualization.py
-        is directly accessing Model.grid
-             76     def render(self, model):
-             77         grid_state = defaultdict(list)
-        ---> 78         for y in range(model.grid.height):
-             79             for x in range(model.grid.width):
-             80                 cell_objects = model.grid.get_cell_list_contents([(x, y)])
-
-        AttributeError: 'ColorPatches' object has no attribute 'grid'
-        """
+        """Expose _grid as grid for compatibility with Mesa visualization."""
         return self._grid

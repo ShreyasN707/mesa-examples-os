@@ -1,8 +1,7 @@
-"""handles the definition of the canvas parameters and
-the drawing of the model representation on the canvas
+"""Handles the definition of the canvas parameters and
+the drawing of the model representation on the canvas.
 """
 
-# import webbrowser
 from color_patches.model import ColorPatches
 from mesa.visualization import (
     SolaraViz,
@@ -37,20 +36,35 @@ canvas_height = grid_cols * cell_size
 
 
 def color_patch_draw(cell):
-    """This function is registered with the visualization server to be called
-    each tick to indicate how to draw the cell in its current state.
+    """Portrayal function called each tick to describe how to draw a cell.
 
-    :param cell:  the cell in the simulation
+    Reads the opinion state from model.opinion_grid rather than from an agent
+    attribute, because state now lives on the model as a NumPy array.
 
-    :return: the portrayal dictionary.
+    :param cell: the cell in the simulation
+    :return: the portrayal dictionary
     """
     if cell is None:
         raise AssertionError
-    portrayal = {"Shape": "rect", "w": 1, "h": 1, "Filled": "true", "Layer": 0}
-    portrayal["x"] = cell.get_row()
-    portrayal["y"] = cell.get_col()
-    portrayal["color"] = _COLORS[cell.state]
-    return portrayal
+
+    # Retrieve the ColorCell agent sitting on this grid position.
+    agent = cell.agents[0] if cell.agents else None
+    model = agent.model if agent else None
+
+    x, y = cell.coordinate
+    # Look up the opinion state from the model-level NumPy array.
+    state = int(model.opinion_grid[x, y]) if model else 0
+
+    return {
+        "Shape": "rect",
+        "w": 1,
+        "h": 1,
+        "Filled": "true",
+        "Layer": 0,
+        "x": x,
+        "y": y,
+        "color": _COLORS[state],
+    }
 
 
 space_component = make_space_component(
@@ -64,4 +78,3 @@ page = SolaraViz(
     model_params={"width": grid_rows, "height": grid_cols},
     name="Color Patches",
 )
-# webbrowser.open('http://127.0.0.1:8521')  # TODO: make this configurable
