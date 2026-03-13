@@ -30,9 +30,6 @@ _COLORS = [
 
 grid_rows = 50
 grid_cols = 25
-cell_size = 10
-canvas_width = grid_rows * cell_size
-canvas_height = grid_cols * cell_size
 
 
 def color_patch_draw(cell):
@@ -53,7 +50,7 @@ def color_patch_draw(cell):
 
     x, y = cell.coordinate
     # Look up the opinion state from the model-level NumPy array.
-    state = int(model.opinion_grid[x, y]) if model else 0
+    state = model.opinion_grid[x, y] if model else 0
 
     return {
         "Shape": "rect",
@@ -71,7 +68,7 @@ space_component = make_space_component(
     color_patch_draw,
     draw_grid=False,
 )
-model = ColorPatches()
+model = ColorPatches(width=grid_rows, height=grid_cols)
 page = SolaraViz(
     model,
     components=[space_component],

@@ -83,13 +83,16 @@ class ColorPatches(mesa.Model):
             )
 
             polled = neighbor_counts.most_common()
+            if not polled:
+                continue
+
             max_count = polled[0][1]
 
             # Collect all opinions that tie for the top count.
             tied = [opinion for opinion, count in polled if count == max_count]
 
             # Resolve the tie randomly (or just pick the single winner).
-            new_opinion[x, y] = self.random.choice(tied)
+            new_opinion[x, y] = self.rng.choice(tied)
 
         self.opinion_grid = new_opinion
 
