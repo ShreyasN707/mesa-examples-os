@@ -22,6 +22,7 @@ class SolarAdoption(mesa.Model):
         self.economic_weight = economic_weight
 
         self.space = mg.GeoSpace(crs="epsg:3857")
+        self.space.warn_crs_conversion = False
         self.total_adopted = 0
         self.running = True
 
@@ -40,6 +41,7 @@ class SolarAdoption(mesa.Model):
         self.raster_layer = mg.RasterLayer.from_file(
             raster_path, model=self, attr_name="radiation"
         )
+        self.raster_layer.crs = self.space.crs
         self.space.add_layer(self.raster_layer)
 
     def _generate_households(self):
