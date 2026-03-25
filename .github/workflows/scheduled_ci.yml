@@ -77,7 +77,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: pip install pyyaml requests
@@ -125,5 +125,7 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "ci: update registry and gallery [skip ci]"
+            # Rebase to pick up any commits made by developers while tests were running
+            git pull --rebase origin ${GITHUB_REF#refs/heads/}
             git push
           fi
