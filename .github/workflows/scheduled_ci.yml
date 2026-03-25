@@ -81,30 +81,24 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml requests
 
-      # Download all result artifacts into the same results/ directory.
-      # Use continue-on-error so a missing RC artifact doesn't abort the job.
+      # Download all matrix results from each parallel job.
+      # They arrive as folders named stable-0, stable-1, etc.
       - uses: actions/download-artifact@v4
         with:
-          name: results-stable
-          path: results/
+          path: all_results/
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: results-main
-          path: results/
-
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: results-rc
-          path: results/
+      - name: Prepare results structure
+        run: |
+          mkdir -p results/stable results/main results/rc
+          find all_results -type f -name "*_stable.json" -exec cp {} results/stable/ \;
+          find all_results -type f -name "*_main.json" -exec cp {} results/main/ \;
+          find all_results -type f -name "*_rc.json" -exec cp {} results/rc/ \;
 
       - name: Update registry files
         run: |
           python scripts/generate_registry.py \
             --results-dir results/ \
-            --registry-dir registry/ \
-            --examples-dir examples/
+            --registry-dir registry/
 
       - name: Generate GALLERY.md
         run: |
