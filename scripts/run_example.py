@@ -64,15 +64,23 @@ def first_warning(stderr_text: str) -> "str | None":
 # ---------------------------------------------------------------------------
 
 
-def run_via_run_py(module_name: str, cwd: Path) -> dict:
-    """Execute run.py as a module and capture result."""
+def run_via_run_py(module_name: str, script_path: Path, cwd: Path, mode: str) -> dict:
+    """Execute run.py and capture result."""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join([
+        str(cwd.resolve()),
+        str(cwd.resolve().parent)
+    ])
+
     try:
+        cmd = [sys.executable, "-m", module_name] if mode == "module" else [sys.executable, str(script_path.resolve())]
         proc = subprocess.run(
-            [sys.executable, "-m", module_name],
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
             cwd=str(cwd.resolve()),
+            env=env,
             check=False,
         )
         passed = proc.returncode == 0
@@ -90,15 +98,23 @@ def run_via_run_py(module_name: str, cwd: Path) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def run_via_app_py(module_name: str, cwd: Path) -> dict:
-    """Start app as a module and verify it doesn't crash immediately."""
+def run_via_app_py(module_name: str, script_path: Path, cwd: Path, mode: str) -> dict:
+    """Start app and verify it doesn't crash immediately."""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join([
+        str(cwd.resolve()),
+        str(cwd.resolve().parent)
+    ])
+
     try:
+        cmd = [sys.executable, "-m", module_name] if mode == "module" else [sys.executable, str(script_path.resolve())]
         proc = subprocess.run(
-            [sys.executable, "-m", module_name],
+            cmd,
             capture_output=True,
             text=True,
             timeout=15,
             cwd=str(cwd.resolve()),
+            env=env,
             check=False,
         )
         # If we reach here, the process exited before timeout.
@@ -131,6 +147,7 @@ import warnings as _w
 import importlib
 
 sys.path.insert(0, {str(cwd.resolve())!r})
+sys.path.insert(1, {str(cwd.resolve().parent)!r})
 
 _first_warning = None
 _original = _w.showwarning
@@ -253,23 +270,35 @@ def main() -> None:
         }
     else:
         # Search for markers in Root or Root/Root/
-        markers = [
-            (example_path / "run.py", "run", example_path.name + ".run", example_path.parent),
-            (example_path / "app.py", "app", example_path.name + ".app", example_path.parent),
-            (example_path / "model.py", "fallback", example_path.name + ".model", example_path.parent),
-            (example_path / example_path.name / "run.py", "run", f"{example_path.name}.{example_path.name}.run", example_path.parent),
-            (example_path / example_path.name / "app.py", "app", f"{example_path.name}.{example_path.name}.app", example_path.parent),
-            (example_path / example_path.name / "model.py", "fallback", f"{example_path.name}.{example_path.name}.model", example_path.parent),
+        # Decision: If Root has __init__.py or marker is in subfolder, use module mode from parent.
+        # Otherwise use script mode from root.
+        is_pkg = (example_path / "__init__.py").exists()
+
+        candidates = [
+            (example_path / "run.py", "run", example_path.name + ".run", example_path.parent, "module" if is_pkg else "script"),
+            (example_path / "app.py", "app", example_path.name + ".app", example_path.parent, "module" if is_pkg else "script"),
+            (example_path / "model.py", "fallback", example_path.name + ".model", example_path.parent, "module" if is_pkg else "script"),
+            (example_path / example_path.name / "run.py", "run", f"{example_path.name}.{example_path.name}.run", example_path.parent, "module"),
+            (example_path / example_path.name / "app.py", "app", f"{example_path.name}.{example_path.name}.app", example_path.parent, "module"),
+            (example_path / example_path.name / "model.py", "fallback", f"{example_path.name}.{example_path.name}.model", example_path.parent, "module"),
         ]
+
+        # Final refined logic: if it's script mode, we should run FROM Root.
+        markers = []
+        for path, mode, mod_name, work_dir, exec_mode in candidates:
+            if exec_mode == "script":
+                markers.append((path, mode, mod_name, example_path, "script"))
+            else:
+                markers.append((path, mode, mod_name, work_dir, "module"))
 
         # Execute the first one found
         run_result = None
-        for path, mode, module_name, working_dir in markers:
+        for path, mode, module_name, working_dir, exec_mode in markers:
             if path.exists():
                 if mode == "run":
-                    run_result = run_via_run_py(module_name, working_dir)
+                    run_result = run_via_run_py(module_name, path, working_dir, exec_mode)
                 elif mode == "app":
-                    run_result = run_via_app_py(module_name, working_dir)
+                    run_result = run_via_app_py(module_name, path, working_dir, exec_mode)
                 else:
                     run_result = run_via_fallback(module_name, working_dir)
                 break

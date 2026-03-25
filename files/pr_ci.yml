@@ -10,7 +10,7 @@ name: PR Validation
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, examples-revivl]
     paths:
       - '**/*.py'
       - 'scripts/**'
