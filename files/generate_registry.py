@@ -225,14 +225,14 @@ def main() -> None:
             try:
                 old_record = json.loads(registry_file.read_text(encoding="utf-8"))
                 if not meaningful_change(old_record, new_record):
-                    print(f"  unchanged  {example_id}")
+                    print(f"  unchanged  {example_path}")
                     continue
             except (json.JSONDecodeError, KeyError, TypeError):
                 # Unreadable or malformed file — overwrite it.
                 pass
 
         registry_file.write_text(json.dumps(new_record, indent=2), encoding="utf-8")
-        print(f"  updated    {example_id}")
+        print(f"  updated    {example_path}")
 
 
 if __name__ == "__main__":
