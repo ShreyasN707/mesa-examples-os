@@ -1,8 +1,8 @@
 {
-  "example_id": "examples/el_farol/el_farol",
+  "example_id": "examples/el_farol",
   "version": "stable",
-  "passed": false,
+  "passed": true,
   "skipped": false,
   "warning": null,
-  "error": "attempted relative import with no known parent package\nAdd run.py for reliable execution."
+  "error": null
 }

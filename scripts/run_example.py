@@ -142,11 +142,21 @@ _w.showwarning = _capture
 
 try:
     mod = importlib.import_module({module_name!r})
+    import mesa
     model_cls = getattr(mod, "Model", None)
-    if not (isinstance(model_cls, type) and callable(getattr(model_cls, "step", None))):
+    if not (isinstance(model_cls, type) and issubclass(model_cls, mesa.Model)):
+        # Fallback: scan all items in the module for a mesa.Model subclass
+        model_cls = None
+        for name in dir(mod):
+            obj = getattr(mod, name)
+            if isinstance(obj, type) and issubclass(obj, mesa.Model) and obj != mesa.Model:
+                model_cls = obj
+                break
+
+    if not (model_cls and callable(getattr(model_cls, "step", None))):
         print(json.dumps({{
             "passed": False, "warning": None,
-            "error": "No Model class found. Add run.py for reliable execution."
+            "error": "No mesa.Model subclass found. Add run.py for reliable execution."
         }}))
         sys.exit(0)
 
