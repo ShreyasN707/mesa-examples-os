@@ -81,7 +81,7 @@ def run_via_run_py(run_py: Path, cwd: Path) -> dict:
         passed = proc.returncode == 0
         warning = first_warning(proc.stderr)
         # Only store the error text if the run actually failed
-        error = proc.stderr.strip()[:200] if not passed else None
+        error = proc.stderr.strip()[-1000:] if not passed else None
         return {"passed": passed, "warning": warning, "error": error}
     except subprocess.TimeoutExpired:
         return {"passed": False, "warning": None, "error": "Timeout after 30 seconds"}
@@ -102,11 +102,11 @@ def run_via_app_py(app_py: Path, cwd: Path) -> dict:
     """
     try:
         proc = subprocess.run(
-            [sys.executable, str(app_py.resolve())],
+            [sys.executable, "-m", f"{cwd.name}.app"],
             capture_output=True,
             text=True,
             timeout=15,
-            cwd=str(cwd.resolve()),
+            cwd=str(cwd.resolve().parent),
             check=False,
         )
         # If we reach here, the process exited before timeout.
@@ -115,7 +115,7 @@ def run_via_app_py(app_py: Path, cwd: Path) -> dict:
             return {
                 "passed": False,
                 "warning": first_warning(proc.stderr),
-                "error": proc.stderr.strip()[:200] or "app.py exited with error",
+                "error": proc.stderr.strip()[-1000:] or "app.py exited with error",
             }
         # Exited cleanly before timeout — treat as pass
         return {
@@ -127,7 +127,7 @@ def run_via_app_py(app_py: Path, cwd: Path) -> dict:
         # Timeout means the app started and stayed running → PASS
         return {"passed": True, "warning": None, "error": None}
     except Exception as exc:
-        return {"passed": False, "warning": None, "error": str(exc)[:200]}
+        return {"passed": False, "warning": None, "error": str(exc)[-1000:]}
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ except Exception as exc:
     print(json.dumps({{
         "passed": False,
         "warning": _first_warning,
-        "error": str(exc)[:200] + "\\nAdd run.py for reliable execution."
+        "error": str(exc)[-1000:] + "\\nAdd run.py for reliable execution."
     }}))
 """)
 
