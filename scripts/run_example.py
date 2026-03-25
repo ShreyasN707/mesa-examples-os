@@ -121,36 +121,18 @@ def run_via_app_py(module_name: str, cwd: Path) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def run_via_fallback(example_path: Path) -> dict:
-    """
-    No run.py found. Import model.py in a child process, instantiate the
-    Model class, call step() five times, and report the outcome.
-
-    Running in a child process keeps imports isolated and lets us capture
-    warnings without polluting this process's warning filters.
-
-    If the model requires constructor arguments or there is no Model class,
-    we return an error that tells the author to add a run.py.
-    """
-    model_py = example_path / "model.py"
-    if not model_py.exists():
-        return {
-            "passed": False,
-            "warning": None,
-            "error": "No run.py, app.py, or model.py found. Add run.py for reliable execution.",
-        }
-
-    # Build a self-contained runner that prints a single JSON line to stdout.
-    # We use repr() for the paths so any OS-specific characters are safely escaped.
+def run_via_fallback(module_name: str, cwd: Path) -> dict:
+    """Import model module and instantiate Model class."""
+    # Build a self-contained runner that imports the model using its module name.
     runner_script = textwrap.dedent(f"""\
 import json
 import sys
 import warnings as _w
+import importlib
 
-sys.path.insert(0, {str(example_path.resolve())!r})
+sys.path.insert(0, {str(cwd.resolve())!r})
 
 _first_warning = None
-
 _original = _w.showwarning
 def _capture(msg, category, filename, lineno, file=None, line=None):
     global _first_warning
@@ -159,11 +141,7 @@ def _capture(msg, category, filename, lineno, file=None, line=None):
 _w.showwarning = _capture
 
 try:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("model", {str(model_py.resolve())!r})
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-
+    mod = importlib.import_module({module_name!r})
     model_cls = getattr(mod, "Model", None)
     if not (isinstance(model_cls, type) and callable(getattr(model_cls, "step", None))):
         print(json.dumps({{
@@ -188,10 +166,11 @@ try:
     print(json.dumps({{"passed": True, "warning": _first_warning, "error": None}}))
 
 except Exception as exc:
+    import traceback
     print(json.dumps({{
         "passed": False,
         "warning": _first_warning,
-        "error": str(exc)[-1000:] + "\\nAdd run.py for reliable execution."
+        "error": traceback.format_exc()[-1000:] + "\\nAdd run.py for reliable execution."
     }}))
 """)
 
@@ -203,24 +182,21 @@ except Exception as exc:
             timeout=30,
             check=False,
         )
-        # The last non-empty stdout line should be our JSON result.
         output_lines = [line for line in proc.stdout.splitlines() if line.strip()]
         if output_lines:
             result = json.loads(output_lines[-1])
-            # If the in-process capture missed something, check stderr too.
             if result["warning"] is None:
                 result["warning"] = first_warning(proc.stderr)
             return result
-        # Script crashed before printing anything.
         return {
             "passed": False,
             "warning": None,
-            "error": proc.stderr.strip() or "Fallback runner produced no output",
+            "error": proc.stderr.strip()[-1000:] or "Fallback runner produced no output",
         }
     except subprocess.TimeoutExpired:
         return {"passed": False, "warning": None, "error": "Timeout after 30 seconds"}
     except (json.JSONDecodeError, Exception) as exc:
-        return {"passed": False, "warning": None, "error": str(exc)}
+        return {"passed": False, "warning": None, "error": str(exc)[-1000:]}
 
 
 # ---------------------------------------------------------------------------
