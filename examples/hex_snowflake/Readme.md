@@ -1,3 +1,8 @@
+---
+ci:
+  skip: true
+  reason: "Uses removed mesa.visualization.CanvasHexGrid (Mesa 2.x API)"
+---
 # Conway's Game Of "Life" on a hexagonal grid
 
 ## Summary

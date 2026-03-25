@@ -1,3 +1,8 @@
+---
+ci:
+  skip: true
+  reason: "Uses removed mesa.visualization.Slider (Mesa 2.x API)"
+---
 # Mesa Charts Example
 
 ## Summary

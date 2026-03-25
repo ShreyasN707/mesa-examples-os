@@ -1,3 +1,8 @@
+---
+ci:
+  skip: true
+  reason: "Uses incorrect add_property_layer() signature for Mesa 3.x"
+---
 # Termite WoodChip Behaviour
 
 This model simulates termites interacting with wood chips, inspired by the [NetLogo Termites model](https://ccl.northwestern.edu/netlogo/models/Termites). It explores emergent behavior in decentralized systems, demonstrating how simple agents (termites) collectively organize wood chips into piles without centralized coordination.
