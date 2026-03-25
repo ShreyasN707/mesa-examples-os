@@ -138,7 +138,7 @@ def build_record(example_id: str, example_path: Path, results: dict) -> dict:
             compat[version] = "pass" if r.get("passed") else "fail"
 
     return {
-        "id": example_id,
+        "location": example_id,
         "name": meta.get("title", example_id),
         "meta": {
             "status": meta.get("status", "incubator"),

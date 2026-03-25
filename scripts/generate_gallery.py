@@ -68,7 +68,7 @@ def render_table(rows):
     out.append("|--------|--------|-----------|----------|")
 
     for r in rows:
-        name = r.get("name", r.get("id"))
+        name = r.get("name", r.get("location", r.get("id", "Unknown")))
         health = health_label(r.get("ci", {}).get("health"))
         complexity = r.get("meta", {}).get("complexity", "-")
         compat = works_on(r.get("compatibility", {}))
@@ -88,7 +88,7 @@ def main():
     records = load_registry(args.registry_dir)
 
     # Sort for stable output (avoids noisy diffs in CI)
-    records.sort(key=lambda r: r.get("name", r.get("id", "")).lower())
+    records.sort(key=lambda r: r.get("name", r.get("location", r.get("id", ""))).lower())
 
     stats = counts(records)
     groups = group_by_status(records)

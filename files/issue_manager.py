@@ -79,8 +79,8 @@ def build_body(flagged: list) -> str:
         "| Example | Status | Health | Warning |",
         "| ------- | ------ | ------ | ------- |",
     ]
-    for r in sorted(flagged, key=lambda x: x["id"]):
-        ex_id = r["id"]
+    for r in sorted(flagged, key=lambda x: x.get("location", x.get("id", ""))):
+        ex_id = r.get("location", r.get("id", "Unknown"))
         status = r.get("meta", {}).get("status", "")
         health = r.get("ci", {}).get("health", "")
         warning = r.get("ci", {}).get("warning") or "—"
