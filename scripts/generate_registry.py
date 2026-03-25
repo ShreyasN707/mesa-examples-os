@@ -1,112 +1,238 @@
 #!/usr/bin/env python3
+# Reads all per-example result files produced by run_example.py,
+# computes each example's health, and writes one JSON file per example
+# into the registry directory.
+#
+# Only writes a registry file if something meaningful changed — this keeps
+# git diffs clean and avoids noisy "just a date bump" commits.
+#
+# Usage:
+#   python scripts/generate_registry.py \
+#       --results-dir results/ \
+#       --registry-dir registry/ \
+#       --examples-dir examples/
+
 import argparse
-import glob
 import json
-import os
-from datetime import datetime
+from datetime import date
+from pathlib import Path
+
+from discovery import discover_all_examples
+
+import yaml  # pip install pyyaml
+
+# ---------------------------------------------------------------------------
+# Frontmatter parser (identical to the one in run_example.py)
+# ---------------------------------------------------------------------------
 
 
-def main():
-    parser = argparse.ArgumentParser()
+def parse_frontmatter(readme_path: Path) -> dict:
+    if not readme_path.exists():
+        return {}
+    text = readme_path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return {}
+    close = text.find("\n---", 3)
+    if close == -1:
+        return {}
+    try:
+        return yaml.safe_load(text[3:close]) or {}
+    except yaml.YAMLError:
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# Health computation
+# ---------------------------------------------------------------------------
+
+
+def compute_health(results_by_version: dict) -> tuple:
+    """
+    Apply the health rules in the exact order specified:
+
+      1. stable fails               → broken
+      2. stable passes, main fails  → warning
+      3. any run produced a warning → warning
+      4. otherwise                  → passing
+
+    Returns (health_string, first_warning_string_or_None).
+    """
+    stable = results_by_version.get("stable")
+    main = results_by_version.get("main")
+
+    # Pick up the first non-null warning across any tested version.
+    first_warn = None
+    for vr in results_by_version.values():
+        if vr and vr.get("warning"):
+            first_warn = vr["warning"]
+            break
+
+    # No stable result at all (example was never run, or only main was run).
+    if stable is None:
+        return "untested", None
+
+    # ci.skip = true in the frontmatter → explicitly untested.
+    if stable.get("skipped"):
+        return "untested", None
+
+    stable_passed = stable.get("passed", False)
+
+    if not stable_passed:
+        return "broken", first_warn
+
+    # main can be absent (not tested yet), skipped, or have a result.
+    main_tested = main is not None and not main.get("skipped")
+    if main_tested and not main.get("passed", True):
+        return "warning", first_warn
+
+    if first_warn:
+        return "warning", first_warn
+
+    return "passing", None
+
+
+# ---------------------------------------------------------------------------
+# Result file loader
+# ---------------------------------------------------------------------------
+
+
+def load_results(results_dir: Path) -> dict:
+    """
+    Read every *.json file in results_dir and group them as:
+        { example_id: { version_label: result_dict, ... }, ... }
+
+    Expected filename pattern: <example_id>_<version>.json
+    """
+    grouped: dict = {}
+    for f in results_dir.glob("*.json"):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        ex_id = data.get("example_id")
+        version = data.get("version")
+        if ex_id and version:
+            grouped.setdefault(ex_id, {})[version] = data
+    return grouped
+
+
+# ---------------------------------------------------------------------------
+# Registry record builder
+# ---------------------------------------------------------------------------
+
+
+def build_record(example_id: str, example_path: Path, results: dict) -> dict:
+    """
+    Combine frontmatter metadata with CI results into one registry record.
+    """
+    meta = parse_frontmatter(example_path / "README.md")
+    health, warning = compute_health(results)
+
+    # Build the compatibility map — only record versions that were actually tested.
+    compat = {}
+    for version in ("stable", "main", "rc"):
+        r = results.get(version)
+        if r is None or r.get("skipped"):
+            compat[version] = "untested"
+        else:
+            compat[version] = "pass" if r.get("passed") else "fail"
+
+    return {
+        "id": example_id,
+        "name": meta.get("title", example_id),
+        "meta": {
+            "status": meta.get("status", "incubator"),
+            "complexity": meta.get("complexity", "beginner"),
+        },
+        "ci": {
+            "health": health,
+            "warning": warning,
+            "last_run": date.today().isoformat(),
+        },
+        "compatibility": compat,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Change detection helper
+# ---------------------------------------------------------------------------
+
+
+def meaningful_change(old: dict, new: dict) -> bool:
+    """
+    Return True if anything other than the last_run date is different.
+    We skip last_run in the comparison so a pure date bump does not trigger
+    a write — the file is only updated when the actual health or metadata changed.
+    """
+
+    def strip_date(record: dict) -> dict:
+        stripped = {k: v for k, v in record.items() if k != "ci"}
+        ci_no_date = {k: v for k, v in record.get("ci", {}).items() if k != "last_run"}
+        stripped["ci"] = ci_no_date
+        return stripped
+
+    return strip_date(old) != strip_date(new)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Update per-example registry files from run results."
+    )
     parser.add_argument(
         "--results-dir",
         required=True,
-        help="Directory containing stable/ and main/ JSON results",
+        help="Directory containing result JSON files from run_example.py",
     )
     parser.add_argument(
-        "--registry-dir", required=True, help="Directory to output registry JSON files"
+        "--registry-dir",
+        default="registry",
+        help="Output directory for per-example registry JSON files",
+    )
+    parser.add_argument(
+        "--search-root",
+        default=".",
+        help="Seed directory to start recursive example discovery",
     )
     args = parser.parse_args()
 
-    os.makedirs(args.registry_dir, exist_ok=True)
+    results_dir = Path(args.results_dir)
+    registry_dir = Path(args.registry_dir)
+    search_root = Path(args.search_root)
 
-    stable_results = {}
-    for f in glob.glob(os.path.join(args.results_dir, "stable", "*.json")):
-        with open(f) as fp:
-            data = json.load(fp)
-            if "id" in data:
-                stable_results[data["id"]] = data
+    registry_dir.mkdir(parents=True, exist_ok=True)
 
-    main_results = {}
-    for f in glob.glob(os.path.join(args.results_dir, "main", "*.json")):
-        with open(f) as fp:
-            data = json.load(fp)
-            if "id" in data:
-                main_results[data["id"]] = data
+    all_results = load_results(results_dir)
 
-    all_ids = set(stable_results.keys()).union(main_results.keys())
-    today = datetime.now().strftime("%Y-%m-%d")
+    # Use discovery logic to find every example in the repo.
+    example_paths = discover_all_examples(root=search_root)
 
-    for ex_id in all_ids:
-        stable = stable_results.get(ex_id, {})
-        main_res = main_results.get(ex_id, {})
+    for ex_id in example_paths:
+        example_path = search_root / ex_id
+        results = all_results.get(ex_id, {})
+        new_record = build_record(ex_id, example_path, results)
 
-        base = stable if stable else main_res
+        # Flatten the filename (e.g. models/test/wolf_sheep -> models_test_wolf_sheep.json)
+        # to avoid creating a nested directory structure inside registry/.
+        safe_name = ex_id.replace("/", "_").replace("\\", "_")
+        registry_file = registry_dir / f"{safe_name}.json"
 
-        stable_status = stable.get("status", "untested")
-        main_status = main_res.get("status", "untested")
+        if registry_file.exists():
+            try:
+                old_record = json.loads(registry_file.read_text(encoding="utf-8"))
+                if not meaningful_change(old_record, new_record):
+                    print(f"  unchanged  {example_id}")
+                    continue
+            except (json.JSONDecodeError, KeyError, TypeError):
+                # Unreadable or malformed file — overwrite it.
+                pass
 
-        warning = stable.get("warning") or main_res.get("warning")
-
-        if stable_status == "broken":
-            health = "broken"
-        elif (stable_status == "passing" and main_status == "broken") or warning:
-            health = "warning"
-        elif stable_status == "passing" and main_status == "passing":
-            health = "passing"
-        else:
-            if stable_status == "untested" and main_status == "untested":
-                health = "untested"
-            elif stable_status == "warning" or main_status == "warning":
-                health = "warning"
-            else:
-                health = "passing" if stable_status == "passing" else "broken"
-
-        new_data = {
-            "id": ex_id,
-            "name": base.get("meta", {}).get("title", ex_id),
-            "meta": {
-                "status": base.get("meta", {}).get("status", "incubator").lower(),
-                "complexity": base.get("meta", {})
-                .get("complexity", "intermediate")
-                .lower(),
-            },
-            "ci": {"health": health, "warning": warning, "last_run": today},
-            "compatibility": {
-                "stable": "fail"
-                if stable_status == "broken"
-                else "pass"
-                if stable_status in ["passing", "warning"]
-                else "untested",
-                "main": "fail"
-                if main_status == "broken"
-                else "pass"
-                if main_status in ["passing", "warning"]
-                else "untested",
-                "rc": "untested",
-            },
-        }
-
-        registry_file = os.path.join(args.registry_dir, f"{ex_id}.json")
-        write_it = True
-
-        if os.path.exists(registry_file):
-            with open(registry_file) as f:
-                try:
-                    old_data = json.load(f)
-                    old_compare = dict(old_data)
-                    new_compare = dict(new_data)
-                    if "ci" in old_compare:
-                        old_compare["ci"]["last_run"] = ""
-                    new_compare["ci"]["last_run"] = ""
-                    if old_compare == new_compare:
-                        write_it = False
-                except json.JSONDecodeError:
-                    pass
-
-        if write_it:
-            with open(registry_file, "w", encoding="utf-8") as f:
-                json.dump(new_data, f, indent=2)
+        registry_file.write_text(json.dumps(new_record, indent=2), encoding="utf-8")
+        print(f"  updated    {example_id}")
 
 
 if __name__ == "__main__":

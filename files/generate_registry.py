@@ -17,6 +17,8 @@ import json
 from datetime import date
 from pathlib import Path
 
+from discovery import discover_all_examples
+
 import yaml  # pip install pyyaml
 
 # ---------------------------------------------------------------------------
@@ -192,30 +194,32 @@ def main() -> None:
         help="Output directory for per-example registry JSON files",
     )
     parser.add_argument(
-        "--examples-dir",
-        default="examples",
-        help="Root directory that contains example subdirectories",
+        "--search-root",
+        default=".",
+        help="Seed directory to start recursive example discovery",
     )
     args = parser.parse_args()
 
     results_dir = Path(args.results_dir)
     registry_dir = Path(args.registry_dir)
-    examples_dir = Path(args.examples_dir)
+    search_root = Path(args.search_root)
 
     registry_dir.mkdir(parents=True, exist_ok=True)
 
     all_results = load_results(results_dir)
 
-    # Walk every example directory, not just ones that have results.
-    # Examples with no results end up as "untested".
-    for example_path in sorted(examples_dir.iterdir()):
-        if not example_path.is_dir():
-            continue
+    # Use discovery logic to find every example in the repo.
+    example_paths = discover_all_examples(root=search_root)
 
-        example_id = example_path.name
-        results = all_results.get(example_id, {})
-        new_record = build_record(example_id, example_path, results)
-        registry_file = registry_dir / f"{example_id}.json"
+    for ex_id in example_paths:
+        example_path = search_root / ex_id
+        results = all_results.get(ex_id, {})
+        new_record = build_record(ex_id, example_path, results)
+
+        # Flatten the filename (e.g. models/test/wolf_sheep -> models_test_wolf_sheep.json)
+        # to avoid creating a nested directory structure inside registry/.
+        safe_name = ex_id.replace("/", "_").replace("\\", "_")
+        registry_file = registry_dir / f"{safe_name}.json"
 
         if registry_file.exists():
             try:
