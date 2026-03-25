@@ -71,7 +71,7 @@ def run_via_run_py(run_py: Path, cwd: Path) -> dict:
     """
     try:
         proc = subprocess.run(
-            [sys.executable, str(run_py)],
+            [sys.executable, run_py.name],
             capture_output=True,
             text=True,
             timeout=30,
@@ -102,7 +102,7 @@ def run_via_app_py(app_py: Path, cwd: Path) -> dict:
     """
     try:
         proc = subprocess.run(
-            [sys.executable, str(app_py)],
+            [sys.executable, app_py.name],
             capture_output=True,
             text=True,
             timeout=15,

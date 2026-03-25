@@ -16,6 +16,13 @@ on:
       - 'scripts/**'
       - '.github/workflows/pr_ci.yml'
       - '.github/workflows/example_validation.yml'
+  workflow_dispatch:
+    inputs:
+      full_run:
+        description: 'Run the full example matrix instead of changed examples only'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -33,9 +40,13 @@ jobs:
       - name: Detect changed examples
         id: set-matrix
         run: |
-          EXAMPLES=$(python scripts/detect_changes.py origin/${{ github.base_ref }} ${{ github.sha }})
-          if [ "$EXAMPLES" = '["ALL"]' ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_run }}" = "true" ]; then
             EXAMPLES=$(python -c 'from scripts.discovery import discover_all_examples; import json; print(json.dumps(discover_all_examples()))')
+          else
+            EXAMPLES=$(python scripts/detect_changes.py origin/${{ github.base_ref }} ${{ github.sha }})
+            if [ "$EXAMPLES" = '["ALL"]' ]; then
+              EXAMPLES=$(python -c 'from scripts.discovery import discover_all_examples; import json; print(json.dumps(discover_all_examples()))')
+            fi
           fi
           echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
 
