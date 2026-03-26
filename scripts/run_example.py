@@ -261,13 +261,19 @@ def find_and_run(example_path: Path) -> dict:
         "ImportError" in (result.get("error") or "")
         or "ModuleNotFoundError" in (result.get("error") or "")
     ):
-        return run_module(
+        result = run_module(
             str(script_path.relative_to(example_path.parent).with_suffix("")).replace(
                 os.sep, "."
             ),
             example_path,
             timeout,
         )
+        # If module run also fails due to missing optional dependencies → test model.py only
+        if not result["passed"] and (
+            "ImportError" in (result.get("error") or "")
+            or "ModuleNotFoundError" in (result.get("error") or "")
+        ):
+            return run_fallback(example_path)
 
     return result
 
