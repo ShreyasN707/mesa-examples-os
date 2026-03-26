@@ -4,7 +4,7 @@ _A curated collection of Mesa examples, automatically validated by CI._
 
 _Last updated: 2026-03-26_
 
-**33 examples** · ✅ 23 Passing · ⚠️ 0 Warning · 🚨 1 Broken
+**34 examples** · ✅ 23 Passing · ⚠️ 1 Warning · 🚨 1 Broken
 
 
 ---
@@ -53,6 +53,7 @@ _No examples_
 | gis/population | ✅ Passing | beginner | stable, main, rc |
 | gis/rainfall | ✅ Passing | beginner | stable, main, rc |
 | gis/urban_growth | ✅ Passing | beginner | stable, main, rc |
+| LLM Schelling Segregation | ⚠️ Warning | intermediate | stable |
 | rl/boltzmann_money | 🚨 Broken | beginner | — |
 | rl/epstein_civil_violence | ⬜ Untested | beginner | — |
 | rl/wolf_sheep | ⬜ Untested | beginner | — |

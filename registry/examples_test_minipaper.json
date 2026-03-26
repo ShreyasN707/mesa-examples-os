@@ -1,0 +1,18 @@
+{
+  "location": "examples/test_minipaper",
+  "name": "LLM Schelling Segregation",
+  "meta": {
+    "status": "incubator",
+    "complexity": "intermediate"
+  },
+  "ci": {
+    "health": "warning",
+    "warning": null,
+    "last_run": "2026-03-26"
+  },
+  "compatibility": {
+    "stable": "pass",
+    "main": "fail",
+    "rc": "fail"
+  }
+}
