@@ -11,7 +11,9 @@ _Last updated: 2026-03-26_
 
 ## 🌟 Showcase
 
-_No examples_
+| Example | Health | Complexity | Works On |
+|--------|--------|-----------|----------|
+| [LLM Schelling Segregation](examples/test_minipaper) | ⚠️ Warning | intermediate | stable |
 
 
 ## 📦 Standard

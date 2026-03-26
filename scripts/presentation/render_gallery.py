@@ -38,7 +38,7 @@ def group_by_status(records):
     """Group examples by their status (showcase, standard, incubator)."""
     groups = {"showcase": [], "standard": [], "incubator": []}
     for r in records:
-        status = r.get("meta", {}).get("status", "incubator")
+        status = str(r.get("meta", {}).get("status", "incubator")).lower()
         groups.setdefault(status, []).append(r)
     return groups
 

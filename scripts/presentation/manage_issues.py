@@ -27,7 +27,7 @@ def load_registries(registry_dir: Path) -> list:
 
 def should_flag(r: dict) -> bool:
     """Check if an example failure warrants an issue."""
-    status = r.get("meta", {}).get("status", "")
+    status = str(r.get("meta", {}).get("status", "")).lower()
     health = r.get("ci", {}).get("health", "")
     if status == "showcase" and health in ("warning", "broken"):
         return True
@@ -37,8 +37,8 @@ def should_flag(r: dict) -> bool:
 def all_clear(records: list) -> bool:
     """True if all standard/showcase examples are passing."""
     for r in records:
-        status = r.get("meta", {}).get("status")
-        health = r.get("ci", {}).get("health")
+        status = str(r.get("meta", {}).get("status", "")).lower()
+        health = r.get("ci", {}).get("health", "")
         if status in ("standard", "showcase") and health in ("warning", "broken"):
             return False
     return True
@@ -53,8 +53,9 @@ def build_body(flagged: list) -> str:
     ]
     for r in sorted(flagged, key=lambda x: x.get("location", "")):
         ex_id = r.get("location", "Unknown")
+        status = str(r.get("meta", {}).get("status", "")).lower()
         lines.append(
-            f"| `{ex_id}` | {r.get('meta', {}).get('status', '')} | **{r.get('ci', {}).get('health', '')}** | {r.get('ci', {}).get('warning') or '—'} |"
+            f"| `{ex_id}` | {status} | **{r.get('ci', {}).get('health', '')}** | {r.get('ci', {}).get('warning') or '—'} |"
         )
     lines.append("\n_Last updated automatically by scheduled CI._")
     return "\n".join(lines)
