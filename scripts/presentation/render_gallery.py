@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Render GALLERY.md from registry results.
 
 import argparse
 import json
@@ -6,8 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-# Convert internal health value → readable label for the table
 def health_label(h):
+    """Convert health status to a readable label with emoji."""
     return {
         "passing": "✅ Passing",
         "warning": "⚠️ Warning",
@@ -16,32 +17,25 @@ def health_label(h):
     }.get(h, h)
 
 
-# Build "Works On" column by including only versions where example passes
 def works_on(compat):
-    works = []
-    if compat.get("stable") == "pass":
-        works.append("stable")
-    if compat.get("main") == "pass":
-        works.append("main")
-    if compat.get("rc") == "pass":
-        works.append("rc")
+    """List versions where the example passes."""
+    works = [v for v in ("stable", "main", "rc") if compat.get(v) == "pass"]
     return ", ".join(works) if works else "—"
 
 
-# Load all per-example registry JSON files into memory
 def load_registry(registry_dir):
+    """Load all JSON records from the registry directory."""
     records = []
     for f in sorted(Path(registry_dir).glob("*.json")):
         try:
             records.append(json.loads(f.read_text(encoding="utf-8")))
         except Exception as e:
             print(f"Skipping malformed registry file {f}: {e}")
-            continue
     return records
 
 
-# Group examples by status so we can render sections (showcase → standard → incubator)
 def group_by_status(records):
+    """Group examples by their status (showcase, standard, incubator)."""
     groups = {"showcase": [], "standard": [], "incubator": []}
     for r in records:
         status = r.get("meta", {}).get("status", "incubator")
@@ -49,8 +43,8 @@ def group_by_status(records):
     return groups
 
 
-# Count health states for summary line at the top
 def counts(records):
+    """Count occurrences of each health state."""
     c = {"passing": 0, "warning": 0, "broken": 0}
     for r in records:
         h = r.get("ci", {}).get("health")
@@ -59,23 +53,20 @@ def counts(records):
     return c
 
 
-# Render one table (used for each section)
 def render_table(rows):
+    """Generate a markdown table for a list of example records."""
     if not rows:
         return "_No examples_\n"
-
-    out = []
-    out.append("| Example | Health | Complexity | Works On |")
-    out.append("|--------|--------|-----------|----------|")
-
+    out = [
+        "| Example | Health | Complexity | Works On |",
+        "|--------|--------|-----------|----------|",
+    ]
     for r in rows:
-        name = r.get("name", r.get("location", r.get("id", "Unknown")))
+        name = r.get("name", r.get("location", "Unknown"))
         health = health_label(r.get("ci", {}).get("health"))
         complexity = r.get("meta", {}).get("complexity", "-")
         compat = works_on(r.get("compatibility", {}))
-
         out.append(f"| {name} | {health} | {complexity} | {compat} |")
-
     return "\n".join(out) + "\n"
 
 
@@ -85,46 +76,27 @@ def main():
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
-    # Read all example states from registry
     records = load_registry(args.registry_dir)
-
-    # Sort for stable output (avoids noisy diffs in CI)
-    records.sort(
-        key=lambda r: r.get("name", r.get("location", r.get("id", ""))).lower()
-    )
+    records.sort(key=lambda r: r.get("name", r.get("location", "")).lower())
 
     stats = counts(records)
     groups = group_by_status(records)
-
     today = datetime.now(timezone.utc).date().isoformat()
 
-    content = []
+    content = [
+        "# Mesa Examples\n",
+        "_A curated collection of Mesa examples, automatically validated by CI._\n",
+        f"_Last updated: {today}_\n",
+        f"**{len(records)} examples** · ✅ {stats['passing']} Passing · ⚠️ {stats['warning']} Warning · 🚨 {stats['broken']} Broken\n",
+        "\n---\n",
+        "## 🌟 Showcase\n",
+        render_table(groups.get("showcase", [])),
+        "\n## 📦 Standard\n",
+        render_table(groups.get("standard", [])),
+        "\n## 🧪 Incubator\n",
+        render_table(groups.get("incubator", [])),
+    ]
 
-    # Header section (context + summary)
-    content.append("# Mesa Examples\n")
-    content.append(
-        "_A curated collection of Mesa examples, automatically validated by CI._\n"
-    )
-    content.append(f"_Last updated: {today}_\n")
-    content.append(
-        f"**{len(records)} examples** · "
-        f"✅ {stats['passing']} Passing · "
-        f"⚠️ {stats['warning']} Warning · "
-        f"🚨 {stats['broken']} Broken\n"
-    )
-
-    # Render each section in priority order
-    content.append("\n---\n")
-    content.append("## 🌟 Showcase\n")
-    content.append(render_table(groups.get("showcase", [])))
-
-    content.append("\n## 📦 Standard\n")
-    content.append(render_table(groups.get("standard", [])))
-
-    content.append("\n## 🧪 Incubator\n")
-    content.append(render_table(groups.get("incubator", [])))
-
-    # Overwrite the gallery file completely each run
     Path(args.output).write_text("\n".join(content), encoding="utf-8")
 
 
