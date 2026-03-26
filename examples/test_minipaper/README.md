@@ -7,7 +7,7 @@ domain:
   - segregation
 complexity: intermediate
 mesa_version_min: "3.0"
-status: incubator
+status: Showcase
 owner: null
 keywords: [LLM, segregation, behavioral heterogeneity]
 ---
