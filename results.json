@@ -1,8 +1,0 @@
-{
-  "example_id": "examples/test_minipaper",
-  "version": "stable",
-  "passed": false,
-  "skipped": false,
-  "warning": null,
-  "error": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/home/zoro/Downloads/OS-contro/mesa-ex/mesa-examples-os/examples/test_minipaper/test_minipaper/run.py\", line 4, in <module>\n    model = MinipaperModel()\n  File \"/home/zoro/Downloads/OS-contro/mesa-ex/mesa-examples-os/examples/test_minipaper/test_minipaper/model.py\", line 10, in __init__\n    self.schedule = mesa.time.RandomActivation(self)\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'mesa.time' has no attribute 'RandomActivation'"
-}
