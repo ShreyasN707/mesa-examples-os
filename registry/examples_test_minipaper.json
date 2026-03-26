@@ -2,7 +2,7 @@
   "location": "examples/test_minipaper",
   "name": "LLM Schelling Segregation",
   "meta": {
-    "status": "incubator",
+    "status": "Showcase",
     "complexity": "intermediate"
   },
   "ci": {

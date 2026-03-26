@@ -53,7 +53,6 @@ _No examples_
 | gis/population | ✅ Passing | beginner | stable, main, rc |
 | gis/rainfall | ✅ Passing | beginner | stable, main, rc |
 | gis/urban_growth | ✅ Passing | beginner | stable, main, rc |
-| LLM Schelling Segregation | ⚠️ Warning | intermediate | stable |
 | rl/boltzmann_money | 🚨 Broken | beginner | — |
 | rl/epstein_civil_violence | ⬜ Untested | beginner | — |
 | rl/wolf_sheep | ⬜ Untested | beginner | — |
