@@ -17,9 +17,8 @@ import json
 from datetime import date
 from pathlib import Path
 
-from discovery import discover_all_examples
-
 import yaml  # pip install pyyaml
+from discovery import discover_all_examples
 
 # ---------------------------------------------------------------------------
 # Frontmatter parser (identical to the one in run_example.py)

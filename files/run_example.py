@@ -50,10 +50,12 @@ def first_warning(stderr_text: str) -> "str | None":
 def _make_env(example_path: Path) -> dict:
     """Build env dict with PYTHONPATH covering example root and its parent."""
     env = os.environ.copy()
-    env["PYTHONPATH"] = os.pathsep.join([
-        str(example_path.resolve()),
-        str(example_path.resolve().parent),
-    ])
+    env["PYTHONPATH"] = os.pathsep.join(
+        [
+            str(example_path.resolve()),
+            str(example_path.resolve().parent),
+        ]
+    )
     return env
 
 
@@ -62,9 +64,12 @@ def run_script(script_path: Path, example_path: Path, timeout: int = 30) -> dict
     try:
         proc = subprocess.run(
             [sys.executable, str(script_path.resolve())],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
             cwd=str(example_path.resolve()),
-            env=_make_env(example_path), check=False,
+            env=_make_env(example_path),
+            check=False,
         )
         passed = proc.returncode == 0
         error = proc.stderr.strip()[-1000:] if not passed else None
@@ -81,15 +86,21 @@ def run_module(module_name: str, example_path: Path, timeout: int = 30) -> dict:
     parent = example_path.resolve().parent
     env = _make_env(example_path)
     # also add the parent to PYTHONPATH for nested package resolution
-    env["PYTHONPATH"] = os.pathsep.join([
-        str(example_path.resolve()),
-        str(parent),
-    ])
+    env["PYTHONPATH"] = os.pathsep.join(
+        [
+            str(example_path.resolve()),
+            str(parent),
+        ]
+    )
     try:
         proc = subprocess.run(
             [sys.executable, "-m", module_name],
-            capture_output=True, text=True, timeout=timeout,
-            cwd=str(parent), env=env, check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(parent),
+            env=env,
+            check=False,
         )
         passed = proc.returncode == 0
         error = proc.stderr.strip()[-1000:] if not passed else None
@@ -109,8 +120,11 @@ def run_fallback(example_path: Path) -> dict:
         model_py = subfolder / "model.py"
 
     if not model_py.exists():
-        return {"passed": False, "warning": None,
-                "error": "No run.py, app.py, or model.py found."}
+        return {
+            "passed": False,
+            "warning": None,
+            "error": "No run.py, app.py, or model.py found.",
+        }
 
     # use importlib.import_module so relative imports work inside packages
     root_str = str(example_path.resolve())
@@ -176,7 +190,10 @@ except Exception:
     try:
         proc = subprocess.run(
             [sys.executable, "-c", runner],
-            capture_output=True, text=True, timeout=30, check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
         )
         lines = [l for l in proc.stdout.splitlines() if l.strip()]
         if lines:
@@ -184,8 +201,11 @@ except Exception:
             if result["warning"] is None:
                 result["warning"] = first_warning(proc.stderr)
             return result
-        return {"passed": False, "warning": None,
-                "error": proc.stderr.strip()[-1000:] or "No output from fallback"}
+        return {
+            "passed": False,
+            "warning": None,
+            "error": proc.stderr.strip()[-1000:] or "No output from fallback",
+        }
     except subprocess.TimeoutExpired:
         return {"passed": False, "warning": None, "error": "Timeout after 30s"}
     except Exception as exc:
@@ -208,7 +228,9 @@ def _imports_own_package(filepath: Path, pkg_name: str) -> bool:
     try:
         for line in filepath.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
-            if stripped.startswith(f"from {pkg_name}.") or stripped.startswith(f"import {pkg_name}."):
+            if stripped.startswith(f"from {pkg_name}.") or stripped.startswith(
+                f"import {pkg_name}."
+            ):
                 return True
     except Exception:
         pass
@@ -268,14 +290,20 @@ def main() -> None:
 
     if ci_config.get("skip", False):
         result = {
-            "example_id": example_id, "version": args.version,
-            "passed": None, "skipped": True, "warning": None, "error": None,
+            "example_id": example_id,
+            "version": args.version,
+            "passed": None,
+            "skipped": True,
+            "warning": None,
+            "error": None,
         }
     else:
         run_result = find_and_run(example_path)
         result = {
-            "example_id": example_id, "version": args.version,
-            "passed": run_result["passed"], "skipped": False,
+            "example_id": example_id,
+            "version": args.version,
+            "passed": run_result["passed"],
+            "skipped": False,
             "warning": run_result.get("warning"),
             "error": run_result.get("error"),
         }

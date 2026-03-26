@@ -4,7 +4,15 @@
 from pathlib import Path
 
 MARKER_FILES = ("model.py", "run.py", "app.py")
-SKIP_DIRS = {".git", "__pycache__", ".github", "scripts", "files", "pulls", "node_modules"}
+SKIP_DIRS = {
+    ".git",
+    "__pycache__",
+    ".github",
+    "scripts",
+    "files",
+    "pulls",
+    "node_modules",
+}
 
 
 def discover_all_examples(root="."):
