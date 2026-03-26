@@ -14,22 +14,33 @@
 
 import argparse
 import json
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 
-from discovery import discover_all_examples
-
 import yaml  # pip install pyyaml
+from discovery import discover_all_examples
 
 # ---------------------------------------------------------------------------
 # Frontmatter parser (identical to the one in run_example.py)
 # ---------------------------------------------------------------------------
 
 
-def parse_frontmatter(readme_path: Path) -> dict:
-    if not readme_path.exists():
+def _find_readme(example_path: Path) -> Path | None:
+    """Find README regardless of casing (README.md, Readme.md, etc)."""
+    if not example_path.is_dir():
+        return None
+    for f in example_path.iterdir():
+        if f.is_file() and f.name.lower() == "readme.md":
+            return f
+    return None
+
+
+def parse_frontmatter(example_path: Path) -> dict:
+    """Read YAML frontmatter from the example's README."""
+    readme = _find_readme(example_path)
+    if readme is None:
         return {}
-    text = readme_path.read_text(encoding="utf-8")
+    text = readme.read_text(encoding="utf-8")
     if not text.startswith("---"):
         return {}
     close = text.find("\n---", 3)
@@ -104,7 +115,7 @@ def load_results(results_dir: Path) -> dict:
     Expected filename pattern: <example_id>_<version>.json
     """
     grouped: dict = {}
-    for f in results_dir.glob("*.json"):
+    for f in results_dir.rglob("*.json"):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
@@ -125,7 +136,7 @@ def build_record(example_id: str, example_path: Path, results: dict) -> dict:
     """
     Combine frontmatter metadata with CI results into one registry record.
     """
-    meta = parse_frontmatter(example_path / "README.md")
+    meta = parse_frontmatter(example_path)
     health, warning = compute_health(results)
 
     # Build the compatibility map — only record versions that were actually tested.
@@ -147,7 +158,7 @@ def build_record(example_id: str, example_path: Path, results: dict) -> dict:
         "ci": {
             "health": health,
             "warning": warning,
-            "last_run": date.today().isoformat(),
+            "last_run": datetime.now(timezone.utc).date().isoformat(),
         },
         "compatibility": compat,
     }
