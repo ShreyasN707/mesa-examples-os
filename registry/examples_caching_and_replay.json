@@ -1,5 +1,5 @@
 {
-  "id": "examples/caching_and_replay",
+  "location": "examples/caching_and_replay",
   "name": "examples/caching_and_replay",
   "meta": {
     "status": "incubator",
@@ -8,7 +8,7 @@
   "ci": {
     "health": "untested",
     "warning": null,
-    "last_run": "2026-03-25"
+    "last_run": "2026-03-26"
   },
   "compatibility": {
     "stable": "untested",

@@ -2,9 +2,9 @@
 
 _A curated collection of Mesa examples, automatically validated by CI._
 
-_Last updated: 2026-03-25_
+_Last updated: 2026-03-26_
 
-**32 examples** · ✅ 0 Passing · ⚠️ 0 Warning · 🚨 0 Broken
+**33 examples** · ✅ 0 Passing · ⚠️ 0 Warning · 🚨 0 Broken
 
 
 ---
@@ -32,6 +32,7 @@ _No examples_
 | examples/conways_game_of_life_fast | ⬜ Untested | beginner | — |
 | examples/deffuant_weisbuch | ⬜ Untested | beginner | — |
 | examples/dining_philosophers | ⬜ Untested | beginner | — |
+| examples/el_farol | ⬜ Untested | beginner | — |
 | examples/el_farol/el_farol | ⬜ Untested | beginner | — |
 | examples/emperor_dilemma | ⬜ Untested | beginner | — |
 | examples/forest_fire | ⬜ Untested | beginner | — |

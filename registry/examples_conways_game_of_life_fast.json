@@ -1,5 +1,5 @@
 {
-  "id": "examples/conways_game_of_life_fast",
+  "location": "examples/conways_game_of_life_fast",
   "name": "examples/conways_game_of_life_fast",
   "meta": {
     "status": "incubator",
@@ -8,7 +8,7 @@
   "ci": {
     "health": "untested",
     "warning": null,
-    "last_run": "2026-03-25"
+    "last_run": "2026-03-26"
   },
   "compatibility": {
     "stable": "untested",

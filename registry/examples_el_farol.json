@@ -1,6 +1,6 @@
 {
-  "location": "gis/population",
-  "name": "gis/population",
+  "location": "examples/el_farol",
+  "name": "examples/el_farol",
   "meta": {
     "status": "incubator",
     "complexity": "beginner"

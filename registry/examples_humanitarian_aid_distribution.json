@@ -1,5 +1,5 @@
 {
-  "id": "examples/humanitarian_aid_distribution",
+  "location": "examples/humanitarian_aid_distribution",
   "name": "examples/humanitarian_aid_distribution",
   "meta": {
     "status": "incubator",
@@ -8,7 +8,7 @@
   "ci": {
     "health": "untested",
     "warning": null,
-    "last_run": "2026-03-25"
+    "last_run": "2026-03-26"
   },
   "compatibility": {
     "stable": "untested",
