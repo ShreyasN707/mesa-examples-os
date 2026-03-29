@@ -1,3 +1,8 @@
+---
+ci:
+  skip: true
+  reason: "Model uses incompatible PropertyLayer API for current Mesa version"
+---
 # Hexagonal Ant Foraging
 
 A simple agent-based model simulating ant foraging behavior on a hexagonal grid. Agents (ants) leave the nest to find food, following pheromone trails. When they find food, they return to the nest, depositing a different pheromone to recruit other ants.

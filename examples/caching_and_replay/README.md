@@ -1,3 +1,8 @@
+---
+ci:
+  skip: true
+  reason: "Uses removed mesa.visualization.ModularServer (Mesa 2.x API)"
+---
 # Schelling Model with Caching and Replay
 
 ## Summary

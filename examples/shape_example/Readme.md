@@ -1,3 +1,8 @@
+---
+ci:
+  skip: true
+  reason: "Uses removed mesa.visualization.CanvasGrid (Mesa 2.x API)"
+---
 # Shape Model -- Basic Grid with two agents
 
 ## Summary

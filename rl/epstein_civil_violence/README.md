@@ -1,3 +1,8 @@
+---
+ci:
+  skip: true
+  reason: "Requires RLlib environment setup not available in standard CI"
+---
 # Modelling Violence: Epstein Civil Violence Model
 
 This project demonstrates the use of the RLlib library to implement Multi-Agent Reinforcement Learning (MARL) in the classic Epstein-Civil Violence problem. The environment details can be found on the Mesa project's GitHub repository [here](https://github.com/mesa/mesa-examples/tree/main/examples/epstein_civil_violence).

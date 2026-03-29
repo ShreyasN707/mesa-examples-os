@@ -1,0 +1,64 @@
+# PR Validation CI
+#
+# Triggered on every pull request targeting main.
+# Steps:
+#   1. Detect which examples changed via git diff.
+#   2. Call the reusable validation workflow for stable and main Mesa.
+#   3. Report results — stable failures block merge, main failures warn only.
+
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main, examples-revivl]
+    paths:
+      - '**/*.py'
+      - 'scripts/**'
+      - '.github/workflows/pr_ci.yml'
+      - '.github/workflows/example_validation.yml'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Step 1 — Detect which examples to test
+  # ---------------------------------------------------------------------------
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      examples: ${{ steps.set-matrix.outputs.examples }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed examples
+        id: set-matrix
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...${{ github.sha }} \
+            | grep -E '^(examples|gis|rl)/' \
+            | cut -d/ -f1-2 \
+            | sort -u || true)
+          if [ -z "$CHANGED" ]; then
+            echo 'examples=[]' >> $GITHUB_OUTPUT
+          else
+            EXAMPLES=$(echo "$CHANGED" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Step 2 — Test via reusable workflow
+  # ---------------------------------------------------------------------------
+  test-stable:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.examples != '[]'
+    uses: ./.github/workflows/example_validation.yml
+    with:
+      examples: ${{ needs.detect-changes.outputs.examples }}
+      mesa_version: stable
+
+  test-main:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.examples != '[]'
+    uses: ./.github/workflows/example_validation.yml
+    with:
+      examples: ${{ needs.detect-changes.outputs.examples }}
+      mesa_version: main
