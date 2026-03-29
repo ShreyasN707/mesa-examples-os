@@ -1,21 +1,53 @@
 #!/usr/bin/env python3
-# Update per-example registry files from test results.
+"""Update per-example registry files from validation results."""
 
 import argparse
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
-# Fix path to allow importing from discovery
-sys.path.append(str(Path(__file__).parent.parent))
-from discovery.discover_examples import discover_all_examples
+# Directories to skip when scanning for examples
+_SKIP = {".git", "__pycache__", ".github", "scripts", "files", "pulls", "node_modules"}
+_MARKERS = ("model.py", "run.py", "app.py")
+
+
+# ---------------------------------------------------------------------------
+# Example scanning (replaces discovery module)
+# ---------------------------------------------------------------------------
+
+
+def scan_examples(root="."):
+    """Find all example directories containing a Mesa marker file."""
+    root_path = Path(root)
+    examples = set()
+
+    for marker in _MARKERS:
+        for p in root_path.rglob(marker):
+            parent = p.parent
+            # If the example has a nested package dir with same name, go up
+            if parent.name == parent.parent.name:
+                parent = parent.parent
+            if any(part in _SKIP or part.startswith(".") for part in parent.parts):
+                continue
+            examples.add(str(parent.relative_to(root_path)))
+
+    # Keep only outermost directories
+    result = sorted(examples)
+    return [
+        ex
+        for ex in result
+        if not any(ex.startswith(o + "/") for o in result if o != ex)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Frontmatter
+# ---------------------------------------------------------------------------
 
 
 def _find_readme(example_path: Path) -> Path | None:
-    """Find README regardless of casing."""
     if not example_path.is_dir():
         return None
     for f in example_path.iterdir():
@@ -41,9 +73,15 @@ def parse_frontmatter(example_path: Path) -> dict:
         return {}
 
 
+# ---------------------------------------------------------------------------
+# Health computation
+# ---------------------------------------------------------------------------
+
+
 def compute_health(results: dict) -> tuple:
-    """Calculate example health based on stable and main results."""
-    stable, main = results.get("stable"), results.get("main")
+    """Calculate health from stable/main results."""
+    stable = results.get("stable")
+    main = results.get("main")
     warn = next(
         (r["warning"] for r in results.values() if r and r.get("warning")), None
     )
@@ -52,30 +90,32 @@ def compute_health(results: dict) -> tuple:
         return "untested", None
     if not stable.get("passed"):
         return "broken", warn
-
-    main_failed = main and not main.get("skipped") and not main.get("passed")
-    if main_failed or warn:
+    if (main and not main.get("skipped") and not main.get("passed")) or warn:
         return "warning", warn
-
     return "passing", None
 
 
+# ---------------------------------------------------------------------------
+# Registry building
+# ---------------------------------------------------------------------------
+
+
 def load_results(results_dir: Path) -> dict:
-    """Load all JSON results and group by example ID."""
+    """Load JSON results and group by example ID."""
     grouped = {}
-    for result_file in results_dir.rglob("*.json"):
+    for f in results_dir.rglob("*.json"):
         try:
-            data = json.loads(result_file.read_text(encoding="utf-8"))
-            example_id, version = data.get("example_id"), data.get("version")
-            if example_id and version:
-                grouped.setdefault(example_id, {})[version] = data
+            data = json.loads(f.read_text(encoding="utf-8"))
+            eid, ver = data.get("example_id"), data.get("version")
+            if eid and ver:
+                grouped.setdefault(eid, {})[ver] = data
         except (json.JSONDecodeError, OSError):
             continue
     return grouped
 
 
 def build_record(example_id: str, example_path: Path, results: dict) -> dict:
-    """Build a complete registry record for an example."""
+    """Build a complete registry record."""
     meta = parse_frontmatter(example_path)
     health, warning = compute_health(results)
 
@@ -105,7 +145,7 @@ def build_record(example_id: str, example_path: Path, results: dict) -> dict:
 
 
 def meaningful_change(old: dict, new: dict) -> bool:
-    """Check if record changed significantly (ignores last_run date)."""
+    """True if record changed (ignoring last_run date)."""
 
     def clean(r):
         c = r.copy()
@@ -115,8 +155,15 @@ def meaningful_change(old: dict, new: dict) -> bool:
     return clean(old) != clean(new)
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Build registry from validation results."
+    )
     parser.add_argument("--results-dir", required=True)
     parser.add_argument("--registry-dir", default="registry")
     parser.add_argument("--search-root", default=".")
@@ -126,24 +173,23 @@ def main():
     registry_dir = Path(args.registry_dir)
     search_root = Path(args.search_root)
     registry_dir.mkdir(parents=True, exist_ok=True)
+
     all_results = load_results(results_dir)
 
-    for ex_id in discover_all_examples(root=search_root):
-        new_record = build_record(
-            ex_id, search_root / ex_id, all_results.get(ex_id, {})
-        )
+    for ex_id in scan_examples(root=search_root):
+        record = build_record(ex_id, search_root / ex_id, all_results.get(ex_id, {}))
         safe_name = ex_id.replace("/", "_").replace("\\", "_")
         reg_file = registry_dir / f"{safe_name}.json"
 
         if reg_file.exists():
             try:
                 old = json.loads(reg_file.read_text(encoding="utf-8"))
-                if not meaningful_change(old, new_record):
+                if not meaningful_change(old, record):
                     continue
             except (json.JSONDecodeError, OSError):
                 pass
 
-        reg_file.write_text(json.dumps(new_record, indent=2), encoding="utf-8")
+        reg_file.write_text(json.dumps(record, indent=2), encoding="utf-8")
         print(f"  updated    {ex_id}")
 
 

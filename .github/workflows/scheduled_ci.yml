@@ -3,13 +3,11 @@
 # Runs every Monday at 06:00 UTC, and can be triggered manually.
 #
 # Steps:
-#   1. Discover all examples dynamically (structure-agnostic).
-#   2. Run them against stable, main, and (if available) rc Mesa
-#      via the reusable example_validation.yml workflow.
-#   3. Collect all results, update per-example registry files.
-#   4. Regenerate GALLERY.md.
-#   5. Create / update / close the GitHub health issue.
-#   6. Commit and push registry + GALLERY changes.
+#   1. Scan all example directories.
+#   2. Run them against stable, main, and rc Mesa.
+#   3. Collect results, update registry, regenerate GALLERY.md.
+#   4. Create/update/close the GitHub health issue.
+#   5. Commit and push changes.
 
 name: Scheduled Full CI
 
@@ -18,8 +16,8 @@ on:
     branches:
       - examples-revivl
   schedule:
-    - cron: "0 6 * * 1"   # Every Monday at 06:00 UTC
-  workflow_dispatch:        # Also allow manual runs from the Actions tab
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
   # --------------------------------------------------------------------------
@@ -31,10 +29,21 @@ jobs:
       examples: ${{ steps.set-matrix.outputs.examples }}
     steps:
       - uses: actions/checkout@v4
-      - name: Generate Example List
+      - name: Generate example list
         id: set-matrix
         run: |
-          EXAMPLES=$(python -c 'from scripts.discovery.discover_examples import discover_all_examples; import json; print(json.dumps(discover_all_examples()))')
+          EXAMPLES=$(python -c "
+          import json; from pathlib import Path
+          skip={'scripts','files','pulls','.git','.github','__pycache__','node_modules'}
+          exs=set()
+          for m in ['model.py','run.py','app.py']:
+            for p in Path('.').rglob(m):
+              d=p.parent
+              if d.name==d.parent.name: d=d.parent
+              if not any(x in skip or x.startswith('.') for x in d.parts): exs.add(str(d))
+          result=sorted(exs)
+          print(json.dumps([e for e in result if not any(e.startswith(o+'/') for o in result if o!=e)]))
+          ")
           echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
 
   # --------------------------------------------------------------------------
@@ -66,14 +75,12 @@ jobs:
   # --------------------------------------------------------------------------
   update-and-publish:
     needs: [test-stable, test-main, test-rc, init-matrix]
-    # The matrix jobs should ALWAYS finish, and then we publish their results
-    # regardless of whether some examples passed or failed.
     if: always() && needs.init-matrix.result == 'success'
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # needed to push registry/GALLERY changes
-      issues: write     # needed for issue_manager.py
+      contents: write
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -85,8 +92,6 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml requests
 
-      # Download all matrix results from each parallel job.
-      # They arrive as folders named stable-0, stable-1, etc.
       - uses: actions/download-artifact@v4
         with:
           path: all_results/
@@ -122,12 +127,10 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add registry/ GALLERY.md
-          # Only commit if there is actually something to commit.
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
             git commit -m "ci: update registry and gallery [skip ci]"
-            # Rebase to pick up any commits made by developers while tests were running
             git pull --rebase origin ${GITHUB_REF#refs/heads/}
             git push
           fi

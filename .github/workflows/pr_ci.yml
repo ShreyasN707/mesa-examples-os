@@ -2,7 +2,7 @@
 #
 # Triggered on every pull request targeting main.
 # Steps:
-#   1. Detect which examples changed (or if shared scripts changed → test all).
+#   1. Detect which examples changed via git diff.
 #   2. Call the reusable validation workflow for stable and main Mesa.
 #   3. Report results — stable failures block merge, main failures warn only.
 
@@ -33,11 +33,16 @@ jobs:
       - name: Detect changed examples
         id: set-matrix
         run: |
-          EXAMPLES=$(python scripts/discovery/discover_changed.py origin/${{ github.base_ref }} ${{ github.sha }})
-          if [ "$EXAMPLES" = '["ALL"]' ]; then
-            EXAMPLES=$(python -c 'from scripts.discovery.discover_examples import discover_all_examples; import json; print(json.dumps(discover_all_examples()))')
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...${{ github.sha }} \
+            | grep -E '^(examples|gis|rl)/' \
+            | cut -d/ -f1-2 \
+            | sort -u || true)
+          if [ -z "$CHANGED" ]; then
+            echo 'examples=[]' >> $GITHUB_OUTPUT
+          else
+            EXAMPLES=$(echo "$CHANGED" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
           fi
-          echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
 
   # ---------------------------------------------------------------------------
   # Step 2 — Test via reusable workflow
