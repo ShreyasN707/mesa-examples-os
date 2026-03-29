@@ -2,9 +2,9 @@
 
 _A curated collection of Mesa examples, automatically validated by CI._
 
-_Last updated: 2026-03-26_
+_Last updated: 2026-03-29_
 
-**34 examples** · ✅ 22 Passing · ⚠️ 1 Warning · 🚨 2 Broken
+**34 examples** · ✅ 21 Passing · ⚠️ 1 Warning · 🚨 3 Broken
 
 
 ---
@@ -36,7 +36,7 @@ _No examples_
 | [examples/dining_philosophers](examples/dining_philosophers) | ✅ Passing | beginner | stable, main, rc |
 | [examples/el_farol](examples/el_farol) | 🚨 Broken | beginner | — |
 | examples/el_farol/el_farol | ⬜ Untested | beginner | — |
-| [examples/emperor_dilemma](examples/emperor_dilemma) | ✅ Passing | beginner | stable, main, rc |
+| [examples/emperor_dilemma](examples/emperor_dilemma) | 🚨 Broken | beginner | — |
 | [examples/forest_fire](examples/forest_fire) | ✅ Passing | beginner | stable, main, rc |
 | [examples/hex_ant](examples/hex_ant) | ⬜ Untested | beginner | — |
 | [examples/hex_snowflake](examples/hex_snowflake) | ⬜ Untested | beginner | — |

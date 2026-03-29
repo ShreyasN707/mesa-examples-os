@@ -6,13 +6,13 @@
     "complexity": "beginner"
   },
   "ci": {
-    "health": "passing",
+    "health": "broken",
     "warning": null,
-    "last_run": "2026-03-26"
+    "last_run": "2026-03-29"
   },
   "compatibility": {
-    "stable": "pass",
-    "main": "pass",
-    "rc": "pass"
+    "stable": "fail",
+    "main": "fail",
+    "rc": "fail"
   }
 }
